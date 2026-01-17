@@ -1,23 +1,37 @@
 import gspread
-from google.oauth2.service_account import Credentials
+import base64
+import json
 import os
+from google.oauth2.service_account import Credentials
 
-SCOPES = SCOPES = [
+SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
+    "https://www.googleapis.com/auth/drive",
 ]
 
 
 def get_client():
-    creds = Credentials.from_service_account_file(
-        os.getenv("GOOGLE_CREDENTIALS"),
+    b64 = os.getenv("GOOGLE_CREDENTIALS_B64")
+    if not b64:
+        raise RuntimeError("GOOGLE_CREDENTIALS_B64 is missing")
+
+    creds_json = base64.b64decode(b64).decode("utf-8")
+    creds_dict = json.loads(creds_json)
+
+    creds = Credentials.from_service_account_info(
+        creds_dict,
         scopes=SCOPES
     )
     return gspread.authorize(creds)
 
+
 def get_spreadsheet():
-    client = get_client()
-    return client.open(os.getenv("SPREADSHEET_NAME"))
+    name = os.getenv("SPREADSHEET_NAME")
+    if not name:
+        raise RuntimeError("SPREADSHEET_NAME is missing")
+
+    return get_client().open(name)
+
 
 def get_players_sheet():
     return get_spreadsheet().worksheet("Гравці🕵️‍♂️")

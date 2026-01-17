@@ -1,4 +1,9 @@
 print("=== BOT FILE LOADED ===")
+import os
+from dotenv import load_dotenv
+load_dotenv()
+print("GOOGLE_CREDENTIALS_B64 =", os.getenv("GOOGLE_CREDENTIALS_B64") is not None)
+print("SPREADSHEET_NAME =", os.getenv("SPREADSHEET_NAME"))
 
 # ---------- IMPORTS ----------
 from sheets import get_progress_by_nick
