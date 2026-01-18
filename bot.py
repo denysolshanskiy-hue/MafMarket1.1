@@ -198,17 +198,14 @@ async def process_buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # 1. Записываем покупку в таблицу
-        add_purchase(balance["nick"], item["name"], price)
-
-        # 2. Уведомляем пользователя
-        await query.message.reply_text(
-            f"✅ *Покупка успішна!*\n\n"
-            f"🧾 {item["name"]}\n"
-            f"💰 {price} МК\n\n"
-            f"Очікуйте на видачу товару адміністратором.",
-            parse_mode="Markdown",
-        )
+# СТАЛО (правильно):
+            await query.message.reply_text(
+                f"✅ *Покупка успішна!*\n\n"
+                f"🧾 {item['name']}\n"  # Тепер тут одинарні лапки
+                f"💰 {price} МК\n\n"
+                f"Очікуйте на отримання🥰",
+                parse_mode="Markdown",
+            )
 
         # 3. Уведомляем АДМИНИСТРАТОРА
         admin_id = os.getenv("ADMIN_TELEGRAM_ID")
