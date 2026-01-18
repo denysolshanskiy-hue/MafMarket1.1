@@ -48,8 +48,14 @@ def find_player_by_nick(nick: str):
     return None, None
 
 def bind_telegram_id(row_index: int, telegram_id: int):
-    ws = get_players_sheet()
-    ws.update_cell(row_index, 4, telegram_id)  # колонка D
+    try:
+        ws = get_players_sheet()
+        print(f"Спроба запису ID {telegram_id} у рядок {row_index}, стовпець 4")
+        ws.update_cell(row_index, 4, str(telegram_id))  # Записуємо як рядок
+        print("Запис успішний!")
+    except Exception as e:
+        print(f"ПОМИЛКА ЗАПИСУ: {e}")
+        raise e # Прокидаємо помилку далі, щоб побачити її в логах
 
 def get_balance_by_telegram_id(telegram_id: int):
     players_ws = get_players_sheet()
@@ -165,3 +171,4 @@ def get_next_goal(balance: int):
             }
 
     return None
+
