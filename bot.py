@@ -4,32 +4,22 @@ import sys
 import os
 from dotenv import load_dotenv
 load_dotenv()
-print("GOOGLE_CREDENTIALS_B64 =", os.getenv("GOOGLE_CREDENTIALS_B64") is not None)
-print("SPREADSHEET_NAME =", os.getenv("SPREADSHEET_NAME"))
+print("=== DIAGNOSTICS ===")
+print(f"BOT_TOKEN exists: {os.getenv('BOT_TOKEN') is not None}")
+print(f"SPREADSHEET_NAME: {os.getenv('SPREADSHEET_NAME')}")
+print(f"GOOGLE_CREDENTIALS_B64 exists: {os.getenv('GOOGLE_CREDENTIALS_B64') is not None}")
+print("===================")
 
 # ---------- IMPORTS ----------
-from sheets import get_progress_by_nick
-from sheets import get_next_goal
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackQueryHandler
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-)
-from dotenv import load_dotenv
-import os
-
 from sheets import (
     find_player_by_nick,
     bind_telegram_id,
     get_balance_by_telegram_id,
     get_market_items,
     add_purchase,
-    get_market_item_by_name,
+    get_market_item_by_name, # Тепер вона буде в sheets.py
+    get_progress_by_nick,
+    get_next_goal
 )
 
 load_dotenv()
@@ -274,4 +264,5 @@ def main():
 # ---------- ENTRY ----------
 if __name__ == "__main__":
     main()
+
 
