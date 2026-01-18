@@ -67,3 +67,7 @@ def get_next_goal(balance: int):
                 return {"name": item["name"], "price": price, "remaining": price - balance}
         except: continue
     return None
+def get_market_item_by_name(name: str):
+    items = get_market_items()
+    search = name.strip().lower()
+    return next((i for i in items if i['name'].strip().lower() == search), None)
