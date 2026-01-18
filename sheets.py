@@ -53,8 +53,13 @@ def find_player_by_nick(nick: str):
     return None, None
 
 def bind_telegram_id(row_index: int, telegram_id: int):
-    # Тут була головна проблема: права доступу або невірний індекс
-    get_players_sheet().update_cell(row_index, 4, str(telegram_id))
+    try:
+        ws = get_players_sheet()
+        print(f"Спроба запису ID {telegram_id} у рядок {row_index}, стовпчик 4")
+        ws.update_cell(row_index, 4, str(telegram_id))
+        print("Запис успішний!")
+    except Exception as e:
+        print(f"Помилка при записі в таблицю: {e}")
 
 def get_balance_by_telegram_id(telegram_id: int):
     players = get_players_sheet().get_all_values()
@@ -97,6 +102,7 @@ def get_market_item_by_name(name: str):
     items = get_market_items()
     search = name.strip().lower()
     return next((i for i in items if i['name'].strip().lower() == search), None)
+
 
 
 
