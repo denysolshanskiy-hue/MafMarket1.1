@@ -6,22 +6,19 @@ from datetime import datetime
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
 def get_client():
-    # Отримуємо сирий ключ
     raw_pk = os.getenv("G_PRIVATE_KEY", "")
     
-    # Видаляємо випадкові лапки та символи \n на самому початку/в кінці
+    # Видаляємо пробіли та зайві лапки
     clean_pk = raw_pk.strip().strip('"').strip("'")
     
-    # Виправляємо внутрішні переноси рядків
+    # Виправляємо злипання заголовка з тілом ключа
+    header = "-----BEGIN PRIVATE KEY-----"
+    if clean_pk.startswith(header) and not clean_pk.startswith(header + "\\n") and not clean_pk.startswith(header + "\n"):
+        clean_pk = clean_pk.replace(header, header + "\\n")
+        
+    # Тепер замінюємо текстові \n на реальні переноси
     if "\\n" in clean_pk:
         clean_pk = clean_pk.replace("\\n", "\n")
-    
-    # Якщо ключ не починається з правильного заголовка, він не спрацює
-    if not clean_pk.startswith("-----BEGIN PRIVATE KEY-----"):
-        # Спробуємо знайти де він починається (якщо попереду затесався \n)
-        start_index = clean_pk.find("-----BEGIN PRIVATE KEY-----")
-        if start_index != -1:
-            clean_pk = clean_pk[start_index:]
 
     creds_dict = {
         "type": "service_account",
@@ -31,14 +28,14 @@ def get_client():
         "client_email": os.getenv("G_CLIENT_EMAIL"),
         "client_id": os.getenv("G_CLIENT_ID"),
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.google.com/token",
+        "token_uri": "https://oauth2.googleapis.com/token",
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
         "client_x509_cert_url": os.getenv("G_CERT_URL")
     }
 
     creds = Credentials.from_service_account_info(creds_dict).with_scopes(SCOPES)
     return gspread.authorize(creds)
-
+    
 def get_spreadsheet():
     return get_client().open(os.getenv("SPREADSHEET_NAME"))
 
@@ -100,6 +97,7 @@ def get_market_item_by_name(name: str):
     items = get_market_items()
     search = name.strip().lower()
     return next((i for i in items if i['name'].strip().lower() == search), None)
+
 
 
 
