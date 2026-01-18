@@ -2,12 +2,35 @@ print("=== BOT FILE LOADED ===")
 import os
 import traceback
 import sys
+from threading import Thread
+from flask import Flask
 from dotenv import load_dotenv
 
+# Завантажуємо змінні оточення
+if os.path.exists(".env"):
+    load_dotenv()
+
+# ---------- WEB SERVER FOR KOYEB (KEEP-ALIVE) ----------
+flask_app = Flask('')
+
+@flask_app.route('/')
+def home():
+    return "Bot is alive!"
+
+def run_flask():
+    # Koyeb автоматично призначає порт 8080 або інший через змінну PORT
+    port = int(os.environ.get('PORT', 8080))
+    flask_app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run_flask)
+    t.start()
+
+# ---------- DIAGNOSTICS ----------
 print("=== DIAGNOSTICS ===")
 print(f"BOT_TOKEN exists: {os.getenv('BOT_TOKEN') is not None}")
 print(f"SPREADSHEET_NAME: {os.getenv('SPREADSHEET_NAME')}")
-print(f"GOOGLE_CREDENTIALS_B64 exists: {os.getenv('GOOGLE_CREDENTIALS_B64') is not None}")
+print(f"ADMIN_ID exists: {os.getenv('ADMIN_TELEGRAM_ID') is not None}")
 print("===================")
 
 # ---------- IMPORTS ----------
@@ -33,6 +56,7 @@ from sheets import (
 )
 
 TOKEN = os.getenv("BOT_TOKEN")
+
 # ---------- MENU ----------
 MENU = ReplyKeyboardMarkup(
     [
@@ -50,16 +74,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     context.user_data["awaiting_nick"] = True
 
-
 # ---------- AUTH ----------
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_nick"):
-        # Якщо користувач просто щось пише без запиту ніку, перевіряємо кнопки
         return
 
     try:
         nick = update.message.text.strip()
-        print(f"DEBUG: Пошук ніку: {nick}") # Побачимо в логах
+        print(f"DEBUG: Пошук ніку: {nick}")
         
         row_index, player = find_player_by_nick(nick)
 
@@ -68,7 +90,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         print(f"DEBUG: Нік знайдено в рядку {row_index}. Спроба прив'язки ID...")
-        
         bind_telegram_id(row_index, update.effective_user.id)
         context.user_data["awaiting_nick"] = False
 
@@ -78,17 +99,14 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     except Exception as e:
-        # Цей блок тепер примусово виштовхне помилку в консоль Koyeb
         print("!!! КРИТИЧНА ПОМИЛКА В HANDLE_TEXT !!!", file=sys.stderr)
         traceback.print_exc(file=sys.stderr) 
-        sys.stderr.flush() # Очищуємо буфер, щоб логи з'явилися миттєво
+        sys.stderr.flush()
         await update.message.reply_text(f"⚠️ Технічна помилка: {e}")
-
 
 # ---------- BALANCE ----------
 async def my_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = get_balance_by_telegram_id(update.effective_user.id)
-
     if not data:
         await update.message.reply_text("❌ Баланс не знайдено.")
         return
@@ -101,17 +119,14 @@ async def my_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown",
     )
 
-
 # ---------- MARKET ----------
 async def show_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
     items = get_market_items()
-
     if not items:
         await update.message.reply_text("❌ Магазин порожній.")
         return
 
     text = "🛒 *Магазин MafMarket*\n\n"
-
     for item in items:
         text += (
             f"🧾 *{item['name']}*\n"
@@ -129,34 +144,13 @@ async def show_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown",
         reply_markup=keyboard,
     )
-# ---------- BUY ----------
-async def buy_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    item_name = text.split(":", 1)[1].strip()
 
-    item = get_market_item_by_name(item_name)
-    if not item:
-        await update.message.reply_text("❌ Товар не знайдено.")
-        return
-
-    balance = get_balance_by_telegram_id(update.effective_user.id)
-    if balance["total"] < int(item["price"]):
-        await update.message.reply_text("❌ Недостатньо МК.")
-        return
-
-    add_purchase(balance["nick"], item["name"], int(item["price"]))
-
-    await update.message.reply_text(
-        f"✅ Куплено: *{item['name']}* за {item['price']} МК",
-        parse_mode="Markdown",
-    )
-# ---------- CHOOSE ITEM ----------
+# ---------- BUY PROCESS ----------
 async def open_buy_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     items = get_market_items()
-
     keyboard = []
     for item in items:
         keyboard.append([
@@ -170,7 +164,7 @@ async def open_buy_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🛒 Оберіть товар для покупки:",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
-# ---------- BUY PROCESS ----------
+
 async def process_buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -189,25 +183,25 @@ async def process_buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         price = int(item["price"])
-
         if balance["total"] < price:
             await query.message.reply_text(
-                f"❌ Бракує коштів.\n"
-                f"Ціна: {price} МК\n"
-                f"У вас: {balance['total']} МК"
+                f"❌ Бракує коштів.\nЦіна: {price} МК\nУ вас: {balance['total']} МК"
             )
             return
 
-# СТАЛО (правильно):
-            await query.message.reply_text(
-                f"✅ *Покупка успішна!*\n\n"
-                f"🧾 {item['name']}\n"  # Тепер тут одинарні лапки
-                f"💰 {price} МК\n\n"
-                f"Очікуйте на отримання🥰",
-                parse_mode="Markdown",
-            )
+        # Записуємо покупку
+        add_purchase(balance["nick"], item["name"], price)
 
-        # 3. Уведомляем АДМИНИСТРАТОРА
+        # Відповідь користувачу (Виправлено f-рядок)
+        await query.message.reply_text(
+            f"✅ *Покупка успішна!*\n\n"
+            f"🧾 {item['name']}\n"
+            f"💰 {price} МК\n\n"
+            f"Очікуйте на отримання🥰",
+            parse_mode="Markdown",
+        )
+
+        # Сповіщення адміна
         admin_id = os.getenv("ADMIN_TELEGRAM_ID")
         if admin_id:
             try:
@@ -222,16 +216,16 @@ async def process_buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="Markdown"
                 )
             except Exception as e:
-                print(f"Помилка надсилання адміну: {e}")
+                print(f"Admin Notify Error: {e}")
 
     except Exception as e:
         print("BUY ERROR:", e)
         traceback.print_exc()
         await query.message.reply_text("⚠️ Сталась технічна помилка під час покупки.")
+
 # ---------- MY PROGRESS ----------
 async def my_progress(update: Update, context: ContextTypes.DEFAULT_TYPE):
     balance_data = get_balance_by_telegram_id(update.effective_user.id)
-
     if not balance_data:
         await update.message.reply_text("❌ Акаунт не знайдено.")
         return
@@ -263,31 +257,26 @@ async def my_progress(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------- MAIN ----------
 def main():
+    if not TOKEN:
+        print("CRITICAL: No TOKEN found!")
+        return
+
+    # Запускаємо веб-сервер у фоновому потоці
+    keep_alive()
+
     app = ApplicationBuilder().token(TOKEN).build()
 
+    # Хендлери
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.Regex("^🧾 Мій баланс$"), my_balance))
     app.add_handler(MessageHandler(filters.Regex("^🛒 Магазин$"), show_market))
-    app.add_handler(MessageHandler(filters.Regex("^Купити:"), buy_item))
-    app.add_handler(
-    MessageHandler(
-        filters.Regex("^📈 Мій прогрес$"),
-        my_progress,
-    )
-)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(MessageHandler(filters.Regex("^📈 Мій прогрес$"), my_progress))
     app.add_handler(CallbackQueryHandler(open_buy_menu, pattern="^open_buy_menu$"))
     app.add_handler(CallbackQueryHandler(process_buy, pattern="^buy:"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-
-    print("Бот запущений")
+    print("Бот запущений як Web Service")
     app.run_polling()
 
-
-# ---------- ENTRY ----------
 if __name__ == "__main__":
     main()
-
-
-
-
