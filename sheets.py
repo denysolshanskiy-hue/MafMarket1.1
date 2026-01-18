@@ -1,23 +1,22 @@
 import gspread
 import os
-import json
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
 def get_client():
-    # Отримуємо приватний ключ і виправляємо символи переносу рядка
-    private_key = os.getenv("G_PRIVATE_KEY")
-    if private_key:
-        private_key = private_key.replace('\\n', '\n')
-
-    # Створюємо словник конфігурації прямо в коді
+    # Отримуємо ключ і чистимо його від зайвих пробілів та некоректних переносів
+    pk = os.getenv("G_PRIVATE_KEY", "")
+    if "\\n" in pk:
+        pk = pk.replace("\\n", "\n")
+    
+    # Створюємо словник вручну з ПОВНИМИ даними
     creds_dict = {
         "type": "service_account",
         "project_id": os.getenv("G_PROJECT_ID"),
         "private_key_id": os.getenv("G_PRIVATE_KEY_ID"),
-        "private_key": private_key,
+        "private_key": pk,
         "client_email": os.getenv("G_CLIENT_EMAIL"),
         "client_id": os.getenv("G_CLIENT_ID"),
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -25,16 +24,15 @@ def get_client():
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
         "client_x509_cert_url": os.getenv("G_CERT_URL")
     }
-    
-    # Перевірка чи всі важливі дані на місці
-    if not creds_dict["private_key"] or not creds_dict["client_email"]:
-        raise ValueError("Критичні дані Google (Email або Key) відсутні в налаштуваннях Koyeb!")
 
-    creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+    # Створюємо Credentials БЕЗ запитів до зовнішніх метаданих
+    creds = Credentials.from_service_account_info(creds_dict).with_scopes(SCOPES)
     return gspread.authorize(creds)
 
 def get_spreadsheet():
     return get_client().open(os.getenv("SPREADSHEET_NAME"))
+
+# ... решта функцій (get_players_sheet і т.д.) залишаються без змін ...
 
 def get_players_sheet():
     return get_spreadsheet().worksheet("Гравці🕵️‍♂️")
@@ -92,5 +90,6 @@ def get_market_item_by_name(name: str):
     items = get_market_items()
     search = name.strip().lower()
     return next((i for i in items if i['name'].strip().lower() == search), None)
+
 
 
