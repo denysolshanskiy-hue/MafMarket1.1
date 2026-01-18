@@ -177,8 +177,8 @@ async def process_buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         item_name = query.data.split(":", 1)[1]
-
         item = get_market_item_by_name(item_name)
+        
         if not item:
             await query.message.reply_text("❌ Товар не знайдено.")
             return
@@ -198,21 +198,39 @@ async def process_buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # ⬇⬇⬇ ПРОБЛЕМНЕ МІСЦЕ
+        # 1. Записываем покупку в таблицу
         add_purchase(balance["nick"], item["name"], price)
 
+        # 2. Уведомляем пользователя
         await query.message.reply_text(
             f"✅ *Покупка успішна!*\n\n"
-            f"🧾 {item['name']}\n"
-            f"💰 {price} МК",
+            f"🧾 {item["name"]}\n"
+            f"💰 {price} МК\n\n"
+            f"Очікуйте на видачу товару адміністратором.",
             parse_mode="Markdown",
         )
 
+        # 3. Уведомляем АДМИНИСТРАТОРА
+        admin_id = os.getenv("ADMIN_TELEGRAM_ID")
+        if admin_id:
+            try:
+                await context.bot.send_message(
+                    chat_id=admin_id,
+                    text=(
+                        f"🛍 *Нова покупка в MafMarket!*\n\n"
+                        f"👤 Покупець: {balance['nick']} (ID: {query.from_user.id})\n"
+                        f"📦 Товар: *{item['name']}*\n"
+                        f"💰 Ціна: {price} МК"
+                    ),
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                print(f"Помилка надсилання адміну: {e}")
+
     except Exception as e:
         print("BUY ERROR:", e)
-        await query.message.reply_text(
-            "⚠️ Сталась технічна помилка під час покупки."
-        )
+        traceback.print_exc()
+        await query.message.reply_text("⚠️ Сталась технічна помилка під час покупки.")
 # ---------- MY PROGRESS ----------
 async def my_progress(update: Update, context: ContextTypes.DEFAULT_TYPE):
     balance_data = get_balance_by_telegram_id(update.effective_user.id)
@@ -272,6 +290,7 @@ def main():
 # ---------- ENTRY ----------
 if __name__ == "__main__":
     main()
+
 
 
 
