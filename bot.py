@@ -1,4 +1,6 @@
 print("=== BOT FILE LOADED ===")
+import traceback
+import sys
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -54,18 +56,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------- AUTH ----------
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_nick"):
+        # Якщо користувач просто щось пише без запиту ніку, перевіряємо кнопки
         return
 
     try:
         nick = update.message.text.strip()
+        print(f"DEBUG: Пошук ніку: {nick}") # Побачимо в логах
+        
         row_index, player = find_player_by_nick(nick)
 
         if not player:
-            await update.message.reply_text(
-                "❌ Такий нік не знайдено."
-            )
+            await update.message.reply_text("❌ Такий нік не знайдено.")
             return
 
+        print(f"DEBUG: Нік знайдено в рядку {row_index}. Спроба прив'язки ID...")
+        
         bind_telegram_id(row_index, update.effective_user.id)
         context.user_data["awaiting_nick"] = False
 
@@ -75,8 +80,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     except Exception as e:
-        print("ERROR:", e)
-        await update.message.reply_text("⚠️ Технічна помилка.")
+        # Цей блок тепер примусово виштовхне помилку в консоль Koyeb
+        print("!!! КРИТИЧНА ПОМИЛКА В HANDLE_TEXT !!!", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr) 
+        sys.stderr.flush() # Очищуємо буфер, щоб логи з'явилися миттєво
+        await update.message.reply_text(f"⚠️ Технічна помилка: {e}")
 
 
 # ---------- BALANCE ----------
@@ -266,3 +274,4 @@ def main():
 # ---------- ENTRY ----------
 if __name__ == "__main__":
     main()
+
