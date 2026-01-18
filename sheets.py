@@ -6,17 +6,28 @@ from datetime import datetime
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
 def get_client():
-    # Отримуємо ключ і чистимо його від зайвих пробілів та некоректних переносів
-    pk = os.getenv("G_PRIVATE_KEY", "")
-    if "\\n" in pk:
-        pk = pk.replace("\\n", "\n")
+    # Отримуємо сирий ключ
+    raw_pk = os.getenv("G_PRIVATE_KEY", "")
     
-    # Створюємо словник вручну з ПОВНИМИ даними
+    # Видаляємо випадкові лапки та символи \n на самому початку/в кінці
+    clean_pk = raw_pk.strip().strip('"').strip("'")
+    
+    # Виправляємо внутрішні переноси рядків
+    if "\\n" in clean_pk:
+        clean_pk = clean_pk.replace("\\n", "\n")
+    
+    # Якщо ключ не починається з правильного заголовка, він не спрацює
+    if not clean_pk.startswith("-----BEGIN PRIVATE KEY-----"):
+        # Спробуємо знайти де він починається (якщо попереду затесався \n)
+        start_index = clean_pk.find("-----BEGIN PRIVATE KEY-----")
+        if start_index != -1:
+            clean_pk = clean_pk[start_index:]
+
     creds_dict = {
         "type": "service_account",
         "project_id": os.getenv("G_PROJECT_ID"),
         "private_key_id": os.getenv("G_PRIVATE_KEY_ID"),
-        "private_key": pk,
+        "private_key": clean_pk,
         "client_email": os.getenv("G_CLIENT_EMAIL"),
         "client_id": os.getenv("G_CLIENT_ID"),
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -25,7 +36,6 @@ def get_client():
         "client_x509_cert_url": os.getenv("G_CERT_URL")
     }
 
-    # Створюємо Credentials БЕЗ запитів до зовнішніх метаданих
     creds = Credentials.from_service_account_info(creds_dict).with_scopes(SCOPES)
     return gspread.authorize(creds)
 
@@ -90,6 +100,7 @@ def get_market_item_by_name(name: str):
     items = get_market_items()
     search = name.strip().lower()
     return next((i for i in items if i['name'].strip().lower() == search), None)
+
 
 
 
